@@ -1,0 +1,189 @@
+name: "LDR: Inicializar repo"
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'Valor para el campo "name" de Base/app.json'
+        required: true
+        type: string
+      dir_name:
+        description: "Nuevo nombre del directorio (opcional, por defecto usa app_name)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  Actualizar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # ───────── 1. Definir variables comunes ─────────
+      - name: Preparar variables
+        id: vars
+        run: |
+          echo "APP_NAME=${{ inputs.app_name }}"        >> $GITHUB_OUTPUT
+          DIR_NAME="${{ inputs.dir_name }}"
+          [[ -z "$DIR_NAME" ]] && DIR_NAME="${{ inputs.app_name }}"
+          echo "DIR_NAME=$DIR_NAME"                     >> $GITHUB_OUTPUT
+          echo "DAY=$(TZ=Europe/Madrid date +%-d)"      >> $GITHUB_OUTPUT
+      # ───────── 2. Actualizar cron en los dos JSON ─────────
+      - name: Actualizar cron
+        shell: bash
+        run: |
+          DAY=$(TZ=Europe/Madrid date +%-d)
+          # Limitar el día máximo a 28
+          [[ $DAY -gt 28 ]] && DAY=27
+          NEXT_DAY=$((DAY + 1))
+          echo "📅 Día base: $DAY, día siguiente: $NEXT_DAY"
+          # Update AL-Go System Files → día base
+          FILE_ALGO=".github/Update AL-Go System Files.settings.json"
+          if [[ -f "$FILE_ALGO" ]]; then
+            jq --arg d "$DAY" '.workflowSchedule.cron = "0 0 \($d) * *"' \
+              "$FILE_ALGO" > "$FILE_ALGO.tmp" && mv "$FILE_ALGO.tmp" "$FILE_ALGO"
+            echo "✔️ $FILE_ALGO → día $DAY"
+          else
+            echo "⚠️ Falta $FILE_ALGO"
+          fi
+          # Test Next Major → día siguiente
+          FILE_NEXT=".github/Test Next Major.settings.json"
+          if [[ -f "$FILE_NEXT" ]]; then
+            jq --arg d "$NEXT_DAY" '.workflowSchedule.cron = "0 0 \($d) * *"' \
+              "$FILE_NEXT" > "$FILE_NEXT.tmp" && mv "$FILE_NEXT.tmp" "$FILE_NEXT"
+            echo "✔️ $FILE_NEXT → día $NEXT_DAY"
+          else
+            echo "⚠️ Falta $FILE_NEXT"
+          fi
+      # ───────── 3. Renombrar directorio Base/ si procede ─────────
+      - name: Renombrar directorio Base
+        shell: bash
+        run: |
+          OLD_DIR="Base"
+          NEW_DIR="${{ steps.vars.outputs.DIR_NAME }}"
+          if [[ "$OLD_DIR" != "$NEW_DIR" ]]; then
+            if [[ -d "$OLD_DIR" ]]; then
+              if [[ -d "$NEW_DIR" ]]; then
+                echo "::error::Ya existe el directorio $NEW_DIR"
+                exit 1
+              fi
+              git mv "$OLD_DIR" "$NEW_DIR"
+              echo "📁 Directorio renombrado: $OLD_DIR → $NEW_DIR"
+            else
+              echo "::error::No se encontró el directorio $OLD_DIR"
+              exit 1
+            fi
+          else
+            echo "El directorio ya tiene el nombre deseado ($NEW_DIR)"
+          fi
+      # ───────── 4. Actualizar app.json (id, name, brief, description) ─────────
+      - name: Actualizar app.json
+        shell: bash
+        run: |
+          DIR="${{ steps.vars.outputs.DIR_NAME }}"
+          FILE="$DIR/app.json"
+          [[ -f "$FILE" ]] || { echo "::error::$FILE no encontrado"; exit 1; }
+          APP_NAME="${{ steps.vars.outputs.APP_NAME }}"
+          GUID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+          FUNCIONALIDAD="Funcionalidad $APP_NAME"
+          jq --arg n "$APP_NAME" \
+             --arg g "$GUID" \
+             --arg f "$FUNCIONALIDAD" \
+             '.name=$n | .id=$g | .brief=$f | .description=$f' \
+             "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
+          echo "Asignados:"
+          echo "  name=$APP_NAME"
+          echo "  id=$GUID"
+          echo "  brief=$FUNCIONALIDAD"
+          echo "  description=$FUNCIONALIDAD"
+      # ───────── 4.1. Actualizar al.workspace ─────────
+      - name: Actualizar al.workspace
+        shell: bash
+        run: |
+          FILE="al.code-workspace"
+          OLD_DIR="Base"
+          NEW_DIR="${{ steps.vars.outputs.DIR_NAME }}"
+          if [[ ! -f "$FILE" ]]; then
+            echo "::error::No se encontró el fichero $FILE"
+            exit 1
+          fi
+          # Sustituir el nombre del directorio en el contenido
+          if grep -q "\"$OLD_DIR\"" "$FILE"; then
+            sed -i "s/\"$OLD_DIR\"/\"$NEW_DIR\"/g" "$FILE"
+            echo "✔️ Reemplazado \"$OLD_DIR\" por \"$NEW_DIR\" en $FILE"
+          else
+            echo "::warning::No se encontró \"$OLD_DIR\" en $FILE, no se realizaron cambios"
+          fi
+      # ───────── 5. Crear rama, commit y abrir PR ─────────
+      - name: Crear PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: bot/update-jsons-${{ github.run_number }}
+          title: "mantenimiento: actualizar crons y metadatos del proyecto"
+          commit-message: |
+            Actualizar crons y metadatos del proyecto
+
+            - Ajustado `workflowSchedule.cron`:
+              * `Update AL-Go System Files` → día base (máx. 28)
+              * `Test Next Major` → día siguiente
+            - Actualizado `app.json`:
+              * `name` = ${{ steps.vars.outputs.APP_NAME }}
+              * `id` nuevo GUID
+              * `brief` y `description` = "Funcionalidad ${{ steps.vars.outputs.APP_NAME }}"
+            - Renombrado `Base/` a `${{ steps.vars.outputs.DIR_NAME }}`
+          body: |
+            Cambios realizados:
+
+            ### 🔁 Ajuste de cron
+            * `Update AL-Go System Files.settings.json`: día base (máx. 28)
+            * `Test Next Major.settings.json`: día siguiente
+
+            ### 🧩 app.json actualizado
+            * `name`: `${{ steps.vars.outputs.APP_NAME }}`
+            * `id`: nuevo GUID generado
+            * `brief` y `description`: `"Funcionalidad ${{ steps.vars.outputs.APP_NAME }}"`
+
+            ### 📁 Estructura
+            * Directorio renombrado: `Base/` → `${{ steps.vars.outputs.DIR_NAME }}`
+          delete-branch: true
+
+      # ───────── 6. Merge del Pull Request ─────────
+      - name: Merge PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Intentando merge del PR #${{ steps.cpr.outputs.pull-request-number }}..."
+          PR_NUMBER="${{ steps.cpr.outputs.pull-request-number }}"
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No se encontró número de PR. Buscando PR creado por la rama..."
+            PR_NUMBER=$(gh pr list --head "bot/update-jsons-${{ github.run_number }}" --json number --jq '.[0].number')
+          fi
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Haciendo merge del PR #$PR_NUMBER..."
+            gh pr merge "$PR_NUMBER" --merge --admin --delete-branch
+          else
+            echo "::warning::No se encontró PR para hacer merge."
+          fi
+
+      # ───────── 7. Ejecutar acción "Update AL-Go System Files" ─────────
+      - name: Lanzar flujo hijo (workflow_dispatch)
+        run: |
+          TEMPLATE_URL="https://github.com/liderit-estandard/plantilla-al-go-pte"
+          DIRECT_COMMIT="true"
+          echo "Lanzando flujo hijo ' Update AL-Go System Files' con:"
+          echo "  templateUrl=$TEMPLATE_URL"
+          echo "  directCommit=$DIRECT_COMMIT"
+          # Ejecuta directamente el flujo hijo definido como workflow_dispatch
+          gh workflow run " Update AL-Go System Files" \
+          --ref main \
+          -f templateUrl="$TEMPLATE_URL" \
+          -f directCommit="$DIRECT_COMMIT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

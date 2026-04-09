@@ -1,0 +1,15 @@
+{
+    "name": "Reglas LiderIT",
+    "rules": [
+        {
+            "id": "AA0137",
+            "action": "Error",
+            "justification": "El estandard solo da aviso, mejor error para evitar dejar basura"
+        },
+        {
+            "id": "AA0247",
+            "action": "None",
+            "justification": "Sin namespaces de momento"
+        }
+    ]
+}

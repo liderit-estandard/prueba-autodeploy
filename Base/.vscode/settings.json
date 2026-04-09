@@ -1,0 +1,42 @@
+{
+    "al.codeAnalyzers": [
+        "${CodeCop}",
+        "${UICop}",
+        "${PerTenantExtensionCop}"
+    ],
+    "al.enableCodeAnalysis": true,
+    "editor.inlineSuggest.enabled": true,
+    "editor.quickSuggestions": {
+ 	 	"other": true,
+  		"comments": true,
+  		"strings": true
+    },	
+    "al.ruleSetPath": ".codeanalysis/lider.ruleset.json",
+    "al.enableCodeActions": true,
+    "CRS.FileNamePattern": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.FileNamePatternExtensions": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.FileNamePatternPageCustomizations": "<ObjectNameShort>.<ObjectTypeShortPascalCase>.al",
+    "CRS.OnSaveAlFileAction": "Rename",
+    "CRS.RenameWithGit": true,
+    "editor.formatOnSave": true,
+    "CRS.ObjectNameSuffix": "_LDR",
+    "alOutline.codeCleanupActions": [
+        "AddApplicationAreas", 
+        "AddMissingParentheses",
+        "CollapseEmptyBrackets", 
+        "ConvertObjectIdsToNames",
+        "FixIdentifiersCase", 
+        "FixKeywordsCase", 
+        "RemoveBeginEnd", 
+        "RemoveEmptyLines", 
+        "RemoveEmptySections", 
+        "RemoveProceduresSemicolon",
+        "RemoveWithStatements",
+        "SortCustomizations",
+        "SortProcedures",
+        "SortProperties",
+        "SortTriggers",
+        "SortVariables",
+	    "FormatDocument"
+    ]
+}
