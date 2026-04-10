@@ -387,8 +387,8 @@ jobs:
           echo "HoraPublicacion leída: $horaPublicacion"
           hour=$(echo "$horaPublicacion" | cut -d: -f1 | awk '{print int($1)}')
           minute=$(echo "$horaPublicacion" | cut -d: -f2 | awk '{print int($1)}')
-          dayOfWeek=$(date +%w)
-          newCron="$minute $hour * * $dayOfWeek"
+          dayOfMonth=$(date +%-d)
+          newCron="$minute $hour $dayOfMonth * *"
           echo "Nueva expresión cron: $newCron"
 
           git config user.name "github-actions[bot]"
