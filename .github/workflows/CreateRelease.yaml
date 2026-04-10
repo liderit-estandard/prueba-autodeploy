@@ -328,18 +328,54 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Read secrets
-        id: ReadSecrets
-        uses: microsoft/AL-Go-Actions/ReadSecrets@v8.3
-        with:
-          shell: pwsh
-          gitHubSecrets: ${{ toJson(secrets) }}
-          getSecrets: "ghTokenWorkflow"
+      - name: Generate GitHub App token
+        id: GenerateJWT
+        shell: pwsh
+        env:
+          GH_TOKEN_WORKFLOW: ${{ secrets.GHTOKENWORKFLOW }}
+        run: |
+          $errorActionPreference = "Stop"; $ProgressPreference = "SilentlyContinue"; Set-StrictMode -Version 2.0
+          if (-not $env:GH_TOKEN_WORKFLOW) {
+            Write-Host "::error::Secret GHTOKENWORKFLOW is not configured"
+            exit 1
+          }
+          $tokenData = $env:GH_TOKEN_WORKFLOW | ConvertFrom-Json
+          $clientId = $tokenData.GitHubAppClientId
+          $privateKey = $tokenData.PrivateKey -replace '\\n', "`n"
+          if ($privateKey -notmatch "`n") {
+            if ($privateKey -match '^(-----BEGIN [^-]+-----)(.+?)(-----END [^-]+-----)$') {
+              $header = $Matches[1]; $body = $Matches[2]; $footer = $Matches[3]
+              $bodyLines = for ($i = 0; $i -lt $body.Length; $i += 64) { $body.Substring($i, [Math]::Min(64, $body.Length - $i)) }
+              $privateKey = "$header`n$($bodyLines -join "`n")`n$footer"
+            }
+          }
+          $tempKeyFile = Join-Path $env:RUNNER_TEMP "gh-app-key-$([Guid]::NewGuid()).pem"
+          [System.IO.File]::WriteAllText($tempKeyFile, $privateKey, [System.Text.UTF8Encoding]::new($false))
+          try {
+            $now = [Math]::Floor([decimal](Get-Date -UFormat %s))
+            $headerEncoded  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(('{"alg":"RS256","typ":"JWT"}'))).TrimEnd('=').Replace('+','-').Replace('/','_')
+            $payloadEncoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(("{""iat"":$($now-60),""exp"":$($now+600),""iss"":""$clientId""}"))).TrimEnd('=').Replace('+','-').Replace('/','_')
+            $dataFile = Join-Path $env:RUNNER_TEMP "data-$([Guid]::NewGuid()).txt"
+            $sigFile  = Join-Path $env:RUNNER_TEMP "sig-$([Guid]::NewGuid()).bin"
+            "$headerEncoded.$payloadEncoded" | Out-File $dataFile -Encoding ASCII -NoNewline
+            & openssl dgst -sha256 -sign $tempKeyFile -out $sigFile $dataFile 2>&1 | Out-Null
+            $sigEncoded = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($sigFile)).TrimEnd('=').Replace('+','-').Replace('/','_')
+            $jwt = "$headerEncoded.$payloadEncoded.$sigEncoded"
+            Remove-Item $dataFile, $sigFile -Force -ErrorAction SilentlyContinue
+            $headers = @{ "Accept"="application/vnd.github+json"; "Authorization"="Bearer $jwt"; "X-GitHub-Api-Version"="2022-11-28" }
+            $owner = "${{ github.repository_owner }}"
+            try { $installation = Invoke-RestMethod -Uri "https://api.github.com/orgs/$owner/installation" -Headers $headers -Method Get }
+            catch { $installation = Invoke-RestMethod -Uri "https://api.github.com/users/$owner/installation" -Headers $headers -Method Get }
+            $token = (Invoke-RestMethod -Uri $installation.access_tokens_url -Headers $headers -Method Post).token
+            Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "token=$token"
+            Write-Host "[OK] GitHub App token generated"
+          }
+          finally { Remove-Item $tempKeyFile -Force -ErrorAction SilentlyContinue }
 
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          token: ${{ fromJson(steps.ReadSecrets.outputs.Secrets).ghTokenWorkflow }}
+          token: ${{ steps.GenerateJWT.outputs.token }}
 
       - name: Update cron schedule and commit
         run: |
