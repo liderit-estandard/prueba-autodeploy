@@ -29,6 +29,7 @@ jobs:
                     exit 1
                   fi
                   echo "nombreEntorno=$nombreEntorno" >> $GITHUB_OUTPUT
+                  echo "NombreEntorno leído: $nombreEntorno"
 
             - name: Trigger Publish To Environment workflow
               env:
