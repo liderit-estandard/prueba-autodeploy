@@ -2,11 +2,6 @@ name: "LDR: Programar publicación en producción"
 
 on:
     workflow_dispatch:
-        inputs:
-            releaseVersion:
-                description: Release version (used in commit message)
-                required: false
-                default: ""
     workflow_call:
         inputs:
             releaseVersion:
@@ -155,6 +150,6 @@ jobs:
                   if git diff --cached --quiet; then
                     echo "Sin cambios en el cron, nada que commitear"
                   else
-                    git commit -m "chore: actualizar schedule LDR tras release ${{ inputs.releaseVersion }}"
+                    git commit -m "chore: actualizar schedule LDR"
                     git push
                   fi
