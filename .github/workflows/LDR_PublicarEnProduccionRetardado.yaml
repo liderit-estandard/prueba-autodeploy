@@ -21,8 +21,8 @@ jobs:
                   CRON="${{ github.event.schedule }}"
 
                   if [ -z "$CRON" ]; then
-                    echo "::notice::No hay cron programado (el workflow ya fue ejecutado y el cron fue eliminado, o se ha lanzado manualmente). Continuando sin validación de retraso."
-                    exit 0
+                    echo "::error::No hay cron programado: el workflow ya fue ejecutado y el cron fue eliminado. Ejecución detenida."
+                    exit 1
                   fi
 
                   CRON_MIN=$(echo "$CRON"  | awk '{print $1}')
