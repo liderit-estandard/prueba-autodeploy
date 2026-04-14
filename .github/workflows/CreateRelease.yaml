@@ -396,7 +396,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin ${{ github.ref_name }}
 
-          sed -i "s|- cron:.*|- cron: \"$newCron\" # Programado automáticamente por el release workflow|" .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
+          sed -i "s|- cron:.*|- cron: '$newCron' # Programado automáticamente por el release workflow|" .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
           echo "Línea cron actualizada:"
           grep 'cron:' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
 

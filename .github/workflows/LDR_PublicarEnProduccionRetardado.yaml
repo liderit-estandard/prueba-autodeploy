@@ -2,7 +2,7 @@ name: "LDR: Publicar en produccion (retardado)"
 
 on:
     schedule:
-        - cron: '00 14 13 4 *' # Programado automáticamente por el release workflow
+        - cron: "00 14 13 4 *" # Programado automáticamente por el release workflow
     workflow_dispatch: # Allow manual triggering
 
 permissions:
@@ -103,7 +103,7 @@ jobs:
 
             - name: Remove cron and push
               run: |
-                  sed -i '/- cron: "45 23 13 4 *" # Programado automáticamente por el release workflow
+                  sed -i '/^\s*- cron:/d' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
                   echo "Cron eliminado."
 
                   git config user.name "github-actions[bot]"
