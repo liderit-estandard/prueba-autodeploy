@@ -396,9 +396,52 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin ${{ github.ref_name }}
 
-          sed -i "s|- cron:.*|- cron: '$newCron' # Programado automáticamente por el release workflow|" .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
-          echo "Línea cron actualizada:"
-          grep 'cron:' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
+          NEW_CRON="$newCron" python3 << 'PYEOF'
+          import os, re
+          filepath = '.github/workflows/LDR_PublicarEnProduccionRetardado.yaml'
+          new_cron = os.environ['NEW_CRON']
+          with open(filepath) as f:
+              lines = f.readlines()
+          in_on_block = False
+          schedule_line_idx = None
+          cron_line_idx = None
+          for i, line in enumerate(lines):
+              stripped = line.lstrip()
+              indent = len(line) - len(stripped)
+              if re.match(r'^on:\s*$', line):
+                  in_on_block = True
+                  continue
+              if in_on_block:
+                  if stripped and indent == 0:
+                      in_on_block = False
+                      continue
+                  if re.match(r'\s+schedule:\s*$', line):
+                      schedule_line_idx = i
+                  if schedule_line_idx is not None and '- cron:' in line:
+                      cron_line_idx = i
+                      break
+          if cron_line_idx is not None:
+              m = re.match(r'(\s+)', lines[cron_line_idx])
+              ind = m.group(1) if m else '        '
+              lines[cron_line_idx] = f"{ind}- cron: '{new_cron}'\n"
+              print(f'Cron actualizado: {new_cron}')
+          elif schedule_line_idx is not None:
+              m = re.match(r'(\s+)', lines[schedule_line_idx])
+              ind = (m.group(1) + '    ') if m else '        '
+              lines.insert(schedule_line_idx + 1, f"{ind}- cron: '{new_cron}'\n")
+              print(f'Cron añadido bajo schedule existente: {new_cron}')
+          else:
+              for i, line in enumerate(lines):
+                  if re.match(r'^on:\s*$', line):
+                      lines.insert(i + 1, f"    schedule:\n        - cron: '{new_cron}'\n")
+                      print(f'Sección schedule y cron creados: {new_cron}')
+                      break
+          with open(filepath, 'w') as f:
+              f.writelines(lines)
+          PYEOF
+
+          echo "Schedule actualizado:"
+          grep -A2 'schedule:' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml || true
 
           git add .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
           if git diff --cached --quiet; then

@@ -137,7 +137,40 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
                   git pull --rebase origin ${{ github.ref_name }}
-                  sed -i '/^\s*- cron: '45 23 14 4 *' # Programado automáticamente por el release workflow
+                  python3 << 'PYEOF'
+                  import re
+                  filepath = '.github/workflows/LDR_PublicarEnProduccionRetardado.yaml'
+                  with open(filepath) as f:
+                      lines = f.readlines()
+                  in_on_block = False
+                  schedule_indent = None
+                  remove_indices = []
+                  for i, line in enumerate(lines):
+                      stripped = line.lstrip()
+                      indent = len(line) - len(stripped)
+                      if re.match(r'^on:\s*$', line):
+                          in_on_block = True
+                          continue
+                      if in_on_block:
+                          if stripped and indent == 0:
+                              in_on_block = False
+                              continue
+                          if re.match(r'\s+schedule:\s*$', line):
+                              schedule_indent = indent
+                              remove_indices.append(i)
+                          elif schedule_indent is not None:
+                              if stripped and indent <= schedule_indent:
+                                  schedule_indent = None
+                              else:
+                                  remove_indices.append(i)
+                  if remove_indices:
+                      lines = [l for i, l in enumerate(lines) if i not in remove_indices]
+                      print(f'Sección schedule eliminada ({len(remove_indices)} líneas).')
+                  else:
+                      print('No se encontró sección schedule bajo on:, nada que eliminar.')
+                  with open(filepath, 'w') as f:
+                      f.writelines(lines)
+                  PYEOF
                   echo "Cron eliminado."
 
                   git add .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
