@@ -1,7 +1,6 @@
 name: "LDR: Publicar en produccion (retardado)"
 
 on:
-    schedule:
     workflow_dispatch: # Allow manual triggering
 
 permissions:
@@ -132,7 +131,7 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
                   git pull --rebase origin ${{ github.ref_name }}
-                  sed -i '/^\s*- cron:/d' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
+                  sed -i '/^\s*- cron:/d; /^\s*schedule:/d' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
                   echo "Cron eliminado."
 
                   git add .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
