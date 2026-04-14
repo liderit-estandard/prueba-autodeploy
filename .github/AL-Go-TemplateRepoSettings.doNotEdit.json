@@ -1,7 +1,7 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/AL-Go-Actions/v8.3/.Modules/settings.schema.json",
+  "$schema": "https://raw.githubusercontent.com/microsoft/AL-Go-Actions/v9.0/.Modules/settings.schema.json",
   "PartnerTelemetryConnectionString": "InstrumentationKey=b09b485a-0932-4966-92eb-cfbd51f379ca;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;ApplicationId=afe081cb-5a8c-40cf-a6f2-4d72d3565ca8",
   "type": "PTE",
   "templateUrl": "https://github.com/microsoft/AL-Go-PTE@main",
-  "templateSha": "63fc1e7b31ee4a59816fd92aff26bdd3924de4ec"
+  "templateSha": "28c060aecd801a24e69346bea0c3cb193f327183"
 }

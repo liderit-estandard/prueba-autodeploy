@@ -1,7 +1,7 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/AL-Go-Actions/v8.3/.Modules/settings.schema.json",
+  "$schema": "https://raw.githubusercontent.com/microsoft/AL-Go-Actions/v9.0/.Modules/settings.schema.json",
   "PartnerTelemetryConnectionString": "InstrumentationKey=b09b485a-0932-4966-92eb-cfbd51f379ca;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;ApplicationId=afe081cb-5a8c-40cf-a6f2-4d72d3565ca8",
   "type": "PTE",
   "templateUrl": "https://github.com/liderit-estandard/plantilla-al-go-pte@main",
-  "templateSha": "90abb2c8519d46e637e1e0ca73cb87ee2161635b"
+  "templateSha": "26b626adc63bf6b61e4abeef388b7222d1f18479"
 }
