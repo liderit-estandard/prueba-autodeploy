@@ -377,7 +377,18 @@ jobs:
         with:
           token: ${{ steps.GenerateJWT.outputs.token }}
 
+      - name: Check PublicarOnRelease setting
+        id: check_settings
+        run: |
+          publicarOnRelease=$(jq -r '.PublicarOnRelease' .github/LDR-Settings.json)
+          echo "PublicarOnRelease: $publicarOnRelease"
+          echo "publicar=$publicarOnRelease" >> $GITHUB_OUTPUT
+          if [ "$publicarOnRelease" != "true" ]; then
+            echo "PublicarOnRelease is not true. Skipping schedule update."
+          fi
+
       - name: Update cron schedule and commit
+        if: steps.check_settings.outputs.publicar == 'true'
         run: |
           horaPublicacion=$(jq -r '.HoraPublicacion' .github/LDR-Settings.json)
           if [ -z "$horaPublicacion" ] || [ "$horaPublicacion" = "null" ]; then
