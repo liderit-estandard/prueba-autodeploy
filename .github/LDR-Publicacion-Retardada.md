@@ -2,7 +2,7 @@
 
 ## Descripción general
 
-Este mecanismo permite programar automáticamente la publicación en producción cada vez que se crea un release. En lugar de publicar de forma inmediata, el sistema:
+Todo el proceso se desencadena ejecutando el workflow **Create release** desde GitHub Actions (ver [Cómo crear un release](#cómo-crear-un-release)). En lugar de publicar en producción de forma inmediata, el sistema:
 
 1. Al finalizar el release, calcula la hora de publicación configurada y la fija como un cron schedule en el workflow `LDR_PublicarEnProduccionRetardado.yaml`.
 2. A la hora programada, ese workflow se activa, lanza el deploy al entorno de producción y elimina el cron de sí mismo, dejando el workflow limpio hasta el siguiente release.
@@ -153,6 +153,70 @@ La GitHub App asociada debe tener instalación en el repositorio con los permiso
 ### Workflow `PublishToEnvironment.yaml`
 
 Debe existir en `.github/workflows/PublishToEnvironment.yaml` y aceptar los inputs `environmentName`, `appVersion` y `createEnvIfNotExists`. Este workflow es generado y mantenido por AL-Go for GitHub.
+
+### Configuración de AL-Go: `AL-Go-Settings.json`
+
+Para que AL-Go sepa a qué entorno desplegar y cómo, deben configurarse dos entradas en `.github/AL-Go-Settings.json`:
+
+**1. `environments`** — lista de identificadores de entorno que AL-Go gestionará:
+
+```json
+"environments": [
+    "<environmentId>"
+]
+```
+
+**2. `DeployTo<environmentId>`** — configuración específica del entorno. El nombre del campo debe coincidir exactamente con el identificador usado en `environments`:
+
+```json
+"DeployTo<environmentId>": [
+  {
+    "EnvironmentName": "<NombreEntornoEnBusinessCentral>",
+    "ContinuousDeployment": false
+  }
+]
+```
+
+> El valor de `EnvironmentName` es el nombre del entorno tal como aparece en el portal de Business Central / GitHub Environments. El valor de `<environmentId>` en el nombre del campo es el identificador interno de AL-Go (puede contener guiones bajos pero no espacios).
+
+Consulte la referencia completa de `DeployTo<Target>` en la [documentación oficial de AL-Go](https://github.com/microsoft/AL-Go/blob/main/Scenarios/settings.md#DeployTo).
+
+### Secreto `<environmentId>_AUTHCONTEXT`
+
+Para que AL-Go pueda autenticarse contra el entorno de Business Central al publicar, debe existir un secreto de repositorio (u organización) con el nombre `<environmentId>_AUTHCONTEXT`, donde `<environmentId>` es el mismo identificador usado en `environments` y `DeployTo<environmentId>`.
+
+El contenido del secreto es un objeto JSON con las credenciales de la service connection. Por ejemplo, usando autenticación de aplicación:
+
+```json
+{
+  "TenantId": "<tenant-id>",
+  "AppId": "<app-id>",
+  "AppSecret": "<app-secret>"
+}
+```
+
+Consulte los formatos de autenticación soportados en la [documentación oficial de AL-Go](https://github.com/microsoft/AL-Go/blob/main/Scenarios/settings.md#DeployTo).
+
+---
+
+## Cómo crear un release
+
+El proceso completo se inicia ejecutando el workflow **Create release** desde la pestaña **Actions** de GitHub con los siguientes inputs:
+
+| Input | Valor recomendado | Notas |
+|---|---|---|
+| Build version to promote to release | `latest` | Usa el artefacto de la última build |
+| Name of this release | `v1.1` | Nombre legible del release (ej. `v<Major>.<Minor>`) |
+| Tag of this release | `1.1.0` | Versión semántica ([semver.org](https://semver.org)), debe coincidir con la versión de la app |
+| Release, prerelease or draft? | `Release` | Usar `Release` para publicar en producción |
+| Create Release Branch? | _(marcado)_ | Crea una rama de mantenimiento para el release |
+| Prefix for release branch | `release/` | Solo relevante si se marca la opción anterior |
+| New Version Number in main branch | `+0.1` | Incrementa el número de minor en la rama main tras el release; usar `+1` para salto de major |
+| Skip updating dependency version numbers | _(desmarcado)_ | Marcar solo si se gestionan dependencias manualmente |
+| Direct Commit? | _(desmarcado)_ | Si se desmarca, el incremento de versión se hace mediante PR |
+| Use GhTokenWorkflow for PR/Commit? | _(marcado)_ | Necesario para que los commits de sistema desencadenen otros workflows |
+
+> **Nota:** Al completarse el release con éxito, el job `CustomJob-UpdatePublishSchedule` invoca automáticamente `LDR_ProgramarPublicacion.yaml`, que programa la publicación en producción a la hora configurada en `LDR-Settings.json`.
 
 ---
 
