@@ -46,7 +46,7 @@ jobs:
     RemoveCronAfterExecution:
         name: Remove cron after scheduled execution
         needs: [TriggerPublish]
-        if: github.event_name == 'schedule'
+       # if: github.event_name == 'schedule'
         runs-on: [ubuntu-latest]
         defaults:
             run:
