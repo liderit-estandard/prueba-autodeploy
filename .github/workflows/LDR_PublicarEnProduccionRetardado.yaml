@@ -1,4 +1,4 @@
-name: "LDR: Publicar en produccion (retardado)"
+name: "LDR: Publicar en producción (retardado)"
 
 on:
     workflow_dispatch: # Allow manual triggering

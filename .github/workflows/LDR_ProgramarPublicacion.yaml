@@ -1,4 +1,4 @@
-name: "LDR: Programar publicacion en produccion"
+name: "LDR: Programar publicación en producción"
 
 on:
     workflow_dispatch:
