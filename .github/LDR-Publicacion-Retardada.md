@@ -7,6 +7,8 @@ Todo el proceso se desencadena ejecutando el workflow **Create release** desde G
 1. Al finalizar el release, calcula la hora de publicación configurada y la fija como un cron schedule en el workflow `LDR_PublicarEnProduccionRetardado.yaml`.
 2. A la hora programada, ese workflow se activa, lanza el deploy al entorno de producción y elimina el cron de sí mismo, dejando el workflow limpio hasta el siguiente release.
 
+En repositorios con protección de rama, los cambios sobre los workflows se realizan a través de **Pull Requests** que se aprueban y fusionan automáticamente.
+
 ---
 
 ## Flujo completo
@@ -21,7 +23,10 @@ LDR_ProgramarPublicacion.yaml
         ├── Comprueba PublicarOnRelease en LDR-Settings.json
         ├── Lee HoraPublicacion de LDR-Settings.json
         ├── Calcula cron con la fecha actual y la hora configurada
-        └── Escribe el cron en LDR_PublicarEnProduccionRetardado.yaml y hace commit
+        ├── Modifica el cron en LDR_PublicarEnProduccionRetardado.yaml
+        ├── Crea un Pull Request con el cambio (rama: ldr/update-schedule)
+        ├── Habilita auto-merge en el PR
+        └── Job Auto-aprobacion: aprueba el PR con GHTOKEN_AUTO
 
 LDR_PublicarEnProduccionRetardado.yaml  (activado por el cron escrito)
   ├── Job: TriggerPublish
@@ -30,7 +35,9 @@ LDR_PublicarEnProduccionRetardado.yaml  (activado por el cron escrito)
   │     └── Dispara PublishToEnvironment.yaml para ese entorno
   └── Job: RemoveCronAfterExecution
         ├── Elimina la sección schedule del propio workflow
-        └── Hace commit del archivo limpio
+        ├── Crea un Pull Request con el cambio (rama: ldr/remove-cron)
+        ├── Habilita auto-merge en el PR
+        └── Job Auto-aprobacion: aprueba el PR con GHTOKEN_AUTO
 ```
 
 ---
@@ -101,7 +108,7 @@ Clona el repositorio usando el token generado en el paso anterior.
 #### 3. Check PublicarOnRelease setting
 Lee el campo `PublicarOnRelease` de `LDR-Settings.json` y lo expone como output `publicar`. Si el valor no es `true`, el siguiente paso se omite por completo y el job finaliza sin error ni cambios.
 
-#### 4. Update cron schedule and commit
+#### 4. Update cron schedule
 > Este paso solo se ejecuta si `PublicarOnRelease` es `true`.
 - Lee `HoraPublicacion` de `.github/LDR-Settings.json`.
 - Calcula la expresión cron usando el día y mes actuales (del momento en que se crea el release) y la hora configurada.  
@@ -110,7 +117,11 @@ Lee el campo `PublicarOnRelease` de `LDR-Settings.json` y lo expone como output 
   45 23 14 4 *
   ```
 - Localiza la sección `on: > schedule: > - cron:` dentro de `LDR_PublicarEnProduccionRetardado.yaml` con un script Python y sustituye (o crea) el valor del cron.
-- Hace `git commit` y `git push` solo si hubo cambios reales.
+
+#### 5. Create Pull Request
+> Este paso solo se ejecuta si `PublicarOnRelease` es `true`.
+
+Crea un Pull Request en la rama `ldr/update-schedule` con el archivo `LDR_PublicarEnProduccionRetardado.yaml` modificado. A continuación habilita el **auto-merge** en el PR (squash). El job `Auto-aprobacion` aprueba el PR usando el secreto `GHTOKEN_AUTO`, tras lo cual el auto-merge lo fusiona automáticamente en cuanto se cumplan los requisitos de la rama protegida.
 
 ---
 
@@ -127,7 +138,7 @@ Lee el campo `PublicarOnRelease` de `LDR-Settings.json` y lo expone como output 
 
 ### Job `RemoveCronAfterExecution`
 
-Se ejecuta siempre que `TriggerPublish` termine (con éxito o fallo). Genera un token de App, hace checkout y ejecuta un script Python que elimina toda la sección `schedule:` del bloque `on:` del propio archivo `LDR_PublicarEnProduccionRetardado.yaml`, dejándolo solo con `workflow_dispatch`. Luego hace commit y push.
+Se ejecuta siempre que `TriggerPublish` termine (con éxito o fallo). Genera un token de App, hace checkout y ejecuta un script Python que elimina toda la sección `schedule:` del bloque `on:` del propio archivo `LDR_PublicarEnProduccionRetardado.yaml`, dejándolo solo con `workflow_dispatch`. A continuación crea un Pull Request en la rama `ldr/remove-cron`, habilita auto-merge y el job `Auto-aprobacion` lo aprueba con `GHTOKEN_AUTO`.
 
 Esto garantiza que el workflow **no se repita** en fechas futuras con el mismo cron, ya que GitHub Actions ejecutaría de nuevo un cron `45 23 14 4 *` cualquier 14 de abril de años sucesivos.
 
@@ -147,8 +158,29 @@ Debe existir un secreto de repositorio (u organización) llamado `GHTOKENWORKFLO
 ```
 
 La GitHub App asociada debe tener instalación en el repositorio con los permisos:
-- **Contents**: Read & Write (para hacer commit/push)
+- **Contents**: Read & Write (para hacer commit en la rama del PR)
 - **Actions**: Write (para disparar `workflow_dispatch`)
+- **Pull requests**: Read & Write (para crear PRs y habilitar auto-merge)
+
+### Secreto `GHTOKEN_AUTO`
+
+Debe existir un secreto de repositorio (u organización) llamado `GHTOKEN_AUTO` con un **Personal Access Token** del usuario **Lider-IT-Consulting**.
+
+Este token se usa exclusivamente para aprobar los Pull Requests creados por los workflows LDR, actuando como revisor independiente (GitHub no permite que el mismo actor que crea el PR lo apruebe).
+
+Requisitos del token:
+- **Tipo**: Classic PAT con scope `repo`, o Fine-grained PAT con permiso `Pull requests: Read and write` sobre el repositorio.
+- **Usuario**: debe ser distinto al autor del PR (la GitHub App configurada en `GHTOKENWORKFLOW`).
+- Si el repositorio pertenece a una organización con SSO, el token debe estar autorizado para esa organización.
+
+### Configuración del repositorio: Allow auto-merge
+
+Para que el auto-merge funcione, debe estar habilitada la opción **Allow auto-merge** en la configuración del repositorio:
+
+1. Ir a **Settings** → **General**.
+2. En la sección **Pull Requests**, marcar **Allow auto-merge**.
+
+Sin esta opción habilitada, `peter-evans/enable-pull-request-automerge` no podrá activar el auto-merge en los PRs y la fusión automática no se producirá.
 
 ### Workflow `PublishToEnvironment.yaml`
 
@@ -238,9 +270,9 @@ CustomJob-UpdatePublishSchedule  (workflow_call)
       │
       ▼
 LDR_ProgramarPublicacion.yaml
-      │  escribe cron (ej: "45 23 14 4 *")
+      │  crea PR con cron (ej: "45 23 14 4 *") → auto-aprobado → auto-merged
       ▼
-LDR_PublicarEnProduccionRetardado.yaml  ◄── (commit activa el cron en GitHub)
+LDR_PublicarEnProduccionRetardado.yaml  ◄── (merge activa el cron en GitHub)
       │
       │  (a las 23:45 UTC del día del release)
       ▼
@@ -248,7 +280,7 @@ Job: TriggerPublish
       │  dispara PublishToEnvironment para NombreEntorno
       ▼
 Job: RemoveCronAfterExecution
-      │  elimina la sección schedule del workflow
+      │  crea PR eliminando schedule → auto-aprobado → auto-merged
       ▼
    (workflow queda limpio, sin cron)
 ```
