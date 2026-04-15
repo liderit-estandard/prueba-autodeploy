@@ -11,6 +11,7 @@ on:
 
 permissions:
     contents: write
+    pull-requests: write
 
 defaults:
     run:
@@ -19,6 +20,8 @@ defaults:
 jobs:
     UpdatePublishSchedule:
         runs-on: [ubuntu-latest]
+        outputs:
+            pr_number: ${{ steps.cpr.outputs.pull-request-number }}
         steps:
             - name: Generate GitHub App token
               id: GenerateJWT
@@ -95,10 +98,6 @@ jobs:
                   newCron="$minute $hour $dayOfMonth $month *"
                   echo "Nueva expresión cron: $newCron"
 
-                  git config user.name "github-actions[bot]"
-                  git config user.email "github-actions[bot]@users.noreply.github.com"
-                  git pull --rebase origin ${{ github.ref_name }}
-
                   NEW_CRON="$newCron" python3 << 'PYEOF'
                   import os, re
                   filepath = '.github/workflows/LDR_PublicarEnProduccionRetardado.yaml'
@@ -146,10 +145,35 @@ jobs:
                   echo "Schedule actualizado:"
                   grep -A2 'schedule:' .github/workflows/LDR_PublicarEnProduccionRetardado.yaml || true
 
-                  git add .github/workflows/LDR_PublicarEnProduccionRetardado.yaml
-                  if git diff --cached --quiet; then
-                    echo "Sin cambios en el cron, nada que commitear"
-                  else
-                    git commit -m "chore: actualizar schedule LDR"
-                    git push
-                  fi
+            - name: Create Pull Request
+              id: cpr
+              if: steps.check_settings.outputs.publicar == 'true'
+              uses: peter-evans/create-pull-request@v5
+              with:
+                  token: ${{ steps.GenerateJWT.outputs.token }}
+                  title: "chore: actualizar schedule LDR"
+                  body: "Actualiza la expresión cron del workflow LDR_PublicarEnProduccionRetardado."
+                  branch: ldr/update-schedule
+                  commit-message: "chore: actualizar schedule LDR"
+
+            - name: Habilitar Pull Request Automerge
+              if: steps.cpr.outputs.pull-request-operation == 'created'
+              uses: peter-evans/enable-pull-request-automerge@v3
+              with:
+                  token: ${{ steps.GenerateJWT.outputs.token }}
+                  pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+                  merge-method: squash
+
+    Auto-aprobacion:
+        runs-on: ubuntu-latest
+        needs: [UpdatePublishSchedule]
+        if: needs.UpdatePublishSchedule.outputs.pr_number != ''
+        permissions:
+            pull-requests: write
+        steps:
+            - name: Auto-aprobar el pull request
+              uses: hmarr/auto-approve-action@v3
+              with:
+                  review-message: "Autoaprobado"
+                  pull-request-number: ${{ needs.UpdatePublishSchedule.outputs.pr_number }}
+                  github-token: ${{ secrets.GHTOKEN_AUTO }}
