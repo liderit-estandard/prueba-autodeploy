@@ -184,10 +184,10 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ steps.GenerateJWT.outputs.token }}
-          title: "chore: eliminar cron de LDR_PublicarEnProduccionRetardado tras ejecución programada"
+          title: "LDR: eliminar cron de LDR_PublicarEnProduccionRetardado tras ejecución programada"
           body: "Elimina la sección schedule del workflow tras ejecutarse el cron."
           branch: ldr/remove-cron
-          commit-message: "chore: eliminar cron de LDR_PublicarEnProduccionRetardado tras ejecución programada"
+          commit-message: "LDR: eliminar cron de LDR_PublicarEnProduccionRetardado tras ejecución programada"
 
       - name: Habilitar Pull Request Automerge
         if: steps.cpr.outputs.pull-request-operation == 'created'
