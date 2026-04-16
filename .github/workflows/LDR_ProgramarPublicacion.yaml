@@ -159,6 +159,7 @@ jobs:
 
             - name: Habilitar Pull Request Automerge
               if: steps.cpr.outputs.pull-request-operation == 'created'
+              continue-on-error: true
               uses: peter-evans/enable-pull-request-automerge@v3
               with:
                   token: ${{ steps.GenerateJWT.outputs.token }}
@@ -178,3 +179,11 @@ jobs:
                   review-message: "Autoaprobado"
                   pull-request-number: ${{ needs.UpdatePublishSchedule.outputs.pr_number }}
                   github-token: ${{ secrets.GHTOKEN_AUTO }}
+
+            - name: Merge Pull Request
+              env:
+                  GH_TOKEN: ${{ secrets.GHTOKEN_AUTO }}
+              run: |
+                  gh pr merge ${{ needs.UpdatePublishSchedule.outputs.pr_number }} \
+                    --squash \
+                    -R ${{ github.repository }}
