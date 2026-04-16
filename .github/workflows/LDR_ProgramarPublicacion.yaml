@@ -159,10 +159,10 @@ jobs:
               uses: peter-evans/create-pull-request@v5
               with:
                   token: ${{ steps.GenerateJWT.outputs.token }}
-                  title: "chore: actualizar schedule LDR"
+                  title: "LDR: actualizar cron prublicación"
                   body: "Actualiza la expresión cron del workflow LDR_PublicarEnProduccionRetardado."
                   branch: ldr/update-schedule
-                  commit-message: "chore: actualizar schedule LDR"
+                  commit-message: "LDR: actualizar cron publicación"
 
             - name: Habilitar Pull Request Automerge
               if: steps.cpr.outputs.pull-request-operation == 'created'
