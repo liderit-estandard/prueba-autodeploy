@@ -169,7 +169,8 @@ Debe existir un secreto de repositorio (u organización) llamado `GHTOKEN_AUTO` 
 Este token se usa exclusivamente para aprobar los Pull Requests creados por los workflows LDR, actuando como revisor independiente (GitHub no permite que el mismo actor que crea el PR lo apruebe).
 
 Requisitos del token:
-- **Tipo**: Classic PAT con scope `repo`, o Fine-grained PAT con permiso `Pull requests: Read and write` sobre el repositorio.
+- **Tipo**: Classic PAT con scope `repo`, o Fine-grained PAT con permisos `Pull requests: Read and write` y `Contents: Read and write` sobre el repositorio.
+- **Rol en el repositorio**: el usuario propietario del token debe tener rol **Write** (o superior: Maintain, Admin) en el repositorio. Sin este rol, el merge del PR fallará con el error `does not have the correct permissions to execute MergePullRequest`.
 - **Usuario**: debe ser distinto al autor del PR (la GitHub App configurada en `GHTOKENWORKFLOW`).
 - Si el repositorio pertenece a una organización con SSO, el token debe estar autorizado para esa organización.
 
