@@ -19,7 +19,7 @@ defaults:
 
 jobs:
     UpdatePublishSchedule:
-        runs-on: [ubuntu-latest]
+        runs-on: [ ubuntu-latest ]
         outputs:
             pr_number: ${{ steps.cpr.outputs.pull-request-number }}
         steps:
@@ -160,7 +160,8 @@ jobs:
               with:
                   token: ${{ steps.GenerateJWT.outputs.token }}
                   title: "LDR: actualizar cron prublicación"
-                  body: "Actualiza la expresión cron del workflow LDR_PublicarEnProduccionRetardado."
+                  body: "Actualiza la expresión cron del workflow
+                      LDR_PublicarEnProduccionRetardado."
                   branch: ldr/update-schedule
                   commit-message: "LDR: actualizar cron publicación"
 
@@ -175,7 +176,7 @@ jobs:
 
     Auto-aprobacion:
         runs-on: ubuntu-latest
-        needs: [UpdatePublishSchedule]
+        needs: [ UpdatePublishSchedule ]
         if: needs.UpdatePublishSchedule.outputs.pr_number != ''
         permissions:
             pull-requests: write
@@ -188,9 +189,45 @@ jobs:
                   github-token: ${{ secrets.GHTOKEN_AUTO }}
 
             - name: Merge Pull Request
+              continue-on-error: true
               env:
                   GH_TOKEN: ${{ secrets.GHTOKEN_AUTO }}
               run: |
-                  gh pr merge ${{ needs.UpdatePublishSchedule.outputs.pr_number }} \
-                    --squash \
-                    -R ${{ github.repository }}
+                  pr_number=${{ needs.UpdatePublishSchedule.outputs.pr_number }}
+                  for attempt in 1 2 3 4 5 6; do
+                      pr_info=$(gh pr view "$pr_number" \
+                          --repo ${{ github.repository }} \
+                          --json state,mergeStateStatus,reviewDecision,isDraft)
+                      state=$(echo "$pr_info" | jq -r '.state')
+                      merge_state=$(echo "$pr_info" | jq -r '.mergeStateStatus')
+                      review_decision=$(echo "$pr_info" | jq -r '.reviewDecision')
+                      is_draft=$(echo "$pr_info" | jq -r '.isDraft')
+
+                      echo "Intento $attempt: state=$state mergeStateStatus=$merge_state reviewDecision=$review_decision isDraft=$is_draft"
+
+                      if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
+                          echo "PR ya cerrado/mergeado, nada que hacer."
+                          exit 0
+                      fi
+
+                      if [ "$is_draft" = "true" ]; then
+                          echo "El PR sigue en draft. No se puede mergear automáticamente."
+                          exit 0
+                      fi
+
+                      if [ "$merge_state" = "CLEAN" ] && [ "$review_decision" = "APPROVED" ]; then
+                          echo "PR mergeable y aprobado. Ejecutando merge manual como fallback."
+                          gh pr merge "$pr_number" \
+                              --squash \
+                              -R ${{ github.repository }}
+                          exit 0
+                      fi
+
+                      if [ "$attempt" -lt 6 ]; then
+                          echo "GitHub aún no marca el PR como mergeable. Reintentando en 10s..."
+                          sleep 10
+                      fi
+                  done
+
+                  echo "El PR sigue abierto pero no quedó mergeable dentro del tiempo de espera. Se deja para automerge o revisión manual."
+                  exit 0
