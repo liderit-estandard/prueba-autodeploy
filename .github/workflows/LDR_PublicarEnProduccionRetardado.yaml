@@ -192,9 +192,22 @@ jobs:
           commit-message: "LDR: eliminar cron de LDR_PublicarEnProduccionRetardado tras
             ejecución programada"
 
-      - name: Habilitar Pull Request Automerge
+      - name: Check PR merge state
+        id: pr_state
         if: steps.cpr.outputs.pull-request-operation == 'created'
-        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.GenerateJWT.outputs.token }}
+        run: |
+          merge_state=$(gh pr view "${{ steps.cpr.outputs.pull-request-number }}" \
+            --repo ${{ github.repository }} \
+            --json mergeStateStatus \
+            --jq '.mergeStateStatus')
+          echo "mergeStateStatus=$merge_state"
+          echo "merge-state=$merge_state" >> $GITHUB_OUTPUT
+
+      - name: Habilitar Pull Request Automerge
+        if: steps.cpr.outputs.pull-request-operation == 'created' &&
+          steps.pr_state.outputs.merge-state != 'CLEAN'
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ steps.GenerateJWT.outputs.token }}
