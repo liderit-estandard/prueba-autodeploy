@@ -346,7 +346,7 @@ jobs:
       releaseVersion: ${{ needs.CreateRelease.outputs.releaseVersion }}
     secrets: inherit
 
-   CustomJob-DetectPR:
+  CustomJob-DetectPR:
     name: Detectar PR de incremento de version
     needs: [ UpdateVersionNumber ]
     if: needs.UpdateVersionNumber.result == 'success'
