@@ -11,7 +11,7 @@ on:
                 description: Antiguedad maxima en minutos de la PR candidata
                 required: false
                 type: number
-                default: 180
+                default: 15
         outputs:
             pr_number:
                 description: Numero de PR encontrada para incremento de version
