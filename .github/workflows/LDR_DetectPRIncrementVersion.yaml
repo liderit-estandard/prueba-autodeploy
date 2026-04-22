@@ -1,0 +1,68 @@
+name: "LDR: Detectar PR Increment Version"
+
+on:
+    workflow_call:
+        inputs:
+            baseRef:
+                description: Branch base objetivo para buscar la PR
+                required: true
+                type: string
+            maxAgeMinutes:
+                description: Antiguedad maxima en minutos de la PR candidata
+                required: false
+                type: number
+                default: 180
+        outputs:
+            pr_number:
+                description: Numero de PR encontrada para incremento de version
+                value: ${{ jobs.DetectPR.outputs.pr_number }}
+
+permissions:
+    contents: read
+    pull-requests: read
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    DetectPR:
+        name: Detectar PR de incremento
+        runs-on: [ ubuntu-latest ]
+        outputs:
+            pr_number: ${{ steps.detect.outputs.pr_number }}
+        steps:
+            - name: Resolver Pull Request candidata
+              id: detect
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  BASE_REF: ${{ inputs.baseRef }}
+                  MAX_AGE_MINUTES: ${{ inputs.maxAgeMinutes }}
+              run: |
+                  max_age_seconds=$(( MAX_AGE_MINUTES * 60 ))
+
+                  prs_json=$(gh pr list \
+                    --repo "${{ github.repository }}" \
+                    --state open \
+                    --base "$BASE_REF" \
+                    --limit 100 \
+                    --json number,title,headRefName,updatedAt,createdAt)
+
+                  pr_number=$(echo "$prs_json" | jq -r --argjson maxAge "$max_age_seconds" '
+                    def candidate:
+                      (
+                        (.title | ascii_downcase | test("increment\\s+version\\s+number|increment\\s+version")) or
+                        (.headRefName | ascii_downcase | test("increment.*version|version.*increment"))
+                      );
+
+                    [ .[]
+                      | select(candidate)
+                      | . + { ageSeconds: (now - ((.updatedAt // .createdAt) | fromdateiso8601)) }
+                      | select(.ageSeconds <= $maxAge)
+                    ]
+                    | sort_by(.updatedAt)
+                    | reverse
+                    | .[0].number // empty
+                  ')
+
+                  echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"

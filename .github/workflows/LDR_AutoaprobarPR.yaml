@@ -1,0 +1,66 @@
+name: "LDR: Autoaprobar Pull Request"
+
+on:
+    workflow_call:
+        inputs:
+            prNumber:
+                description: Numero de Pull Request a autoaprobar
+                required: true
+                type: string
+
+permissions:
+    contents: read
+    pull-requests: write
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    Auto-aprobacion:
+        name: Auto-aprobar Pull Request
+        runs-on: ubuntu-latest
+        steps:
+            - name: Auto-aprobar el pull request
+              uses: hmarr/auto-approve-action@v3
+              with:
+                  review-message: "Autoaprobado"
+                  pull-request-number: ${{ inputs.prNumber }}
+                  github-token: ${{ secrets.GHTOKEN_AUTO }}
+
+            - name: Merge Pull Request
+              continue-on-error: true
+              env:
+                  GH_TOKEN: ${{ secrets.GHTOKEN_AUTO }}
+              run: |
+                  pr_number="${{ inputs.prNumber }}"
+                  for attempt in 1 2 3 4 5 6; do
+                    pr_info=$(gh pr view "$pr_number" \
+                      --repo ${{ github.repository }} \
+                      --json state,mergeStateStatus,reviewDecision,isDraft)
+                    state=$(echo "$pr_info" | jq -r '.state')
+                    merge_state=$(echo "$pr_info" | jq -r '.mergeStateStatus')
+                    review_decision=$(echo "$pr_info" | jq -r '.reviewDecision')
+                    is_draft=$(echo "$pr_info" | jq -r '.isDraft')
+
+                    if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
+                      exit 0
+                    fi
+
+                    if [ "$is_draft" = "true" ]; then
+                      exit 0
+                    fi
+
+                    if [ "$merge_state" = "CLEAN" ] && [ "$review_decision" = "APPROVED" ]; then
+                      gh pr merge "$pr_number" \
+                        --squash \
+                        -R ${{ github.repository }}
+                      exit 0
+                    fi
+
+                    if [ "$attempt" -lt 6 ]; then
+                      sleep 10
+                    fi
+                  done
+
+                  exit 0

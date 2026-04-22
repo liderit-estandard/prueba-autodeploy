@@ -1,4 +1,4 @@
-name: ' Increment Version Number'
+name: " Increment Version Number"
 
 run-name: "Increment Version Number in [${{ github.ref_name }}]"
 
@@ -6,13 +6,16 @@ on:
   workflow_dispatch:
     inputs:
       projects:
-        description: Comma-separated list of project name patterns if the repository is setup for multiple projects (default is * for all projects)
+        description: Comma-separated list of project name patterns if the repository is
+          setup for multiple projects (default is * for all projects)
         required: false
-        default: '*'
+        default: "*"
       versionNumber:
-        description: New Version Number in main branch. Use Major.Minor (optionally add .Build for versioningstrategy 3) for absolute change, or +1, +0.1 (or +0.0.1 for versioningstrategy 3) incremental change.
+        description: New Version Number in main branch. Use Major.Minor (optionally add
+          .Build for versioningstrategy 3) for absolute change, or +1, +0.1 (or
+          +0.0.1 for versioningstrategy 3) incremental change.
         required: false
-        default: ''
+        default: ""
       skipUpdatingDependencies:
         description: Skip updating dependency version numbers in all apps.
         type: boolean
@@ -39,7 +42,7 @@ permissions:
 
 jobs:
   IncrementVersionNumber:
-    needs: [ ]
+    needs: []
     runs-on: [ windows-latest ]
     permissions:
       actions: read
@@ -78,8 +81,8 @@ jobs:
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
-          getSecrets: 'TokenForPush'
-          useGhTokenWorkflowForPush: '${{ github.event.inputs.useGhTokenWorkflow }}'
+          getSecrets: "TokenForPush"
+          useGhTokenWorkflowForPush: "${{ github.event.inputs.useGhTokenWorkflow }}"
 
       - name: Increment Version Number
         uses: microsoft/AL-Go-Actions/IncrementVersionNumber@v9.0
@@ -100,3 +103,22 @@ jobs:
           shell: powershell
           telemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
           currentJobContext: ${{ toJson(job) }}
+
+  CustomJob-DetectPR:
+    name: Detectar PR de incremento de version
+    needs: [ IncrementVersionNumber ]
+    if: needs.IncrementVersionNumber.result == 'success'
+    uses: ./.github/workflows/LDR_DetectPRIncrementVersion.yaml
+    with:
+      baseRef: ${{ github.ref_name }}
+    secrets: inherit
+
+  CustomJob-Autoaprobar:
+    name: Auto-aprobar PR de incremento de version
+    needs: [ CustomJob-DetectPR ]
+    if: needs['CustomJob-DetectPR'].result == 'success' &&
+      needs['CustomJob-DetectPR'].outputs.pr_number != ''
+    uses: ./.github/workflows/LDR_AutoaprobarPR.yaml
+    with:
+      prNumber: ${{ needs['CustomJob-DetectPR'].outputs.pr_number }}
+    secrets: inherit
