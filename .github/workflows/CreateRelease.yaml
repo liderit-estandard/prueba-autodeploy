@@ -337,6 +337,7 @@ jobs:
           telemetryScopeJson: ${{ needs.CreateRelease.outputs.telemetryScopeJson }}
           currentJobContext: ${{ toJson(job) }}
 
+  # DO NOT EDIT. The following job was added through a custom template.
   CustomJob-UpdatePublishSchedule:
     name: Fijar cron publicación
     needs: [CreateRelease, UploadArtifacts]
@@ -346,6 +347,7 @@ jobs:
       releaseVersion: ${{ needs.CreateRelease.outputs.releaseVersion }}
     secrets: inherit
 
+  # DO NOT EDIT. The following job was added through a custom template.
   CustomJob-DetectPR:
     name: Detectar PR de incremento de version
     needs: [ UpdateVersionNumber ]
@@ -355,6 +357,7 @@ jobs:
       baseRef: ${{ github.ref_name }}
     secrets: inherit
 
+  # DO NOT EDIT. The following job was added through a custom template.
   CustomJob-Autoaprobar:
     name: Auto-aprobar PR de incremento de version
     needs: [ CustomJob-DetectPR ]
