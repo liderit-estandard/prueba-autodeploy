@@ -1,6 +1,8 @@
 name: "LDR: Publicar en producción (retardado)"
 
 on:
+  schedule:
+      - cron: '45 23 24 4 *'
   workflow_dispatch:
 
 permissions:
