@@ -19,7 +19,7 @@ defaults:
 
 jobs:
   UpdatePublishSchedule:
-    runs-on: [ ubuntu-latest ]
+    runs-on: [ ubuntu-latest ] # Prueba actualización
     outputs:
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
     steps:

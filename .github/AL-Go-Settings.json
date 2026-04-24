@@ -3,5 +3,5 @@
   "PartnerTelemetryConnectionString": "InstrumentationKey=b09b485a-0932-4966-92eb-cfbd51f379ca;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/;ApplicationId=afe081cb-5a8c-40cf-a6f2-4d72d3565ca8",
   "type": "PTE",
   "templateUrl": "https://github.com/liderit-estandard/plantilla-al-go-pte@main",
-  "templateSha": "cfc0fdf453b2c82b31446b02586cabea29c09025"
+  "templateSha": "fcaa132aa11b4e212e86ba53d76398d5ec0049c2"
 }
